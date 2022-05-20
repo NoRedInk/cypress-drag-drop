@@ -2,4 +2,4 @@
 
 NoRedInk fork of https://github.com/4teamwork/cypress-drag-drop
 
-We removed some code that was causing exceptions for our use case.
+We were getting some DOM detached errors for our use case, so we fixed it.

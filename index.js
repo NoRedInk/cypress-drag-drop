@@ -4,8 +4,11 @@ function omit(object = {}, keys = []) {
   return Object.entries(object).reduce((accum, [key, value]) => (key in keys ? accum : { ...accum, [key]: value }), {})
 }
 
-function isAttached(element) {
-  return !!element.closest('html')
+function stillExists (selector) {
+  cy.wait(1000)
+  cy.get('body').then($body => {
+    return $body.find(selector).length > 0
+  })
 }
 
 const DragSimulator = {
@@ -13,6 +16,7 @@ const DragSimulator = {
   DELAY_INTERVAL_MS: 10,
   counter: 0,
   targetElement: null,
+  targetSelector: null,
   rectsEqual(r1, r2) {
     return r1.top === r2.top && r1.right === r2.right && r1.bottom === r2.bottom && r1.left === r2.left
   },
@@ -64,8 +68,8 @@ const DragSimulator = {
         ...this.options.target,
       })
       .then(() => {
-        if (isAttached(this.targetElement)) {
-          this.target
+        if (stillExists(this.targetSelector)) {
+          cy.get(this.targetSelector)
             .trigger('mouseup', {
               which: 1,
               button: 0,
@@ -73,19 +77,19 @@ const DragSimulator = {
               clientY,
               eventConstructor: 'MouseEvent',
               ...this.options.target,
-            })
-            .then(() => {
-              if (isAttached(this.targetElement)) {
-                this.target.trigger('pointerup', {
-                  which: 1,
-                  button: 0,
-                  clientX,
-                  clientY,
-                  eventConstructor: 'PointerEvent',
-                  ...this.options.target,
-                })
+            }).then(() => {
+              if (stillExists(this.targetSelector)) {
+                cy.get(this.targetSelector)
+                  .trigger('pointerup', {
+                    which: 1,
+                    button: 0,
+                    clientX,
+                    clientY,
+                    eventConstructor: 'PointerEvent',
+                    ...this.options.target,
+                  })
               }
-            })
+            }) 
         }
       })
   },
@@ -125,11 +129,12 @@ const DragSimulator = {
     this.counter = 0
     this.source = source.get(0)
     this.initialSourcePosition = this.source.getBoundingClientRect()
+    this.targetSelector = target
     return cy.get(target).then((targetWrapper) => {
       this.target = targetWrapper.get(0)
     })
   },
-  drag(sourceWrapper, targetSelector, options) {
+  drag (sourceWrapper, targetSelector, options) {
     this.init(sourceWrapper, targetSelector, options)
       .then(() => this.dragstart())
       .then(() => this.dragover())
