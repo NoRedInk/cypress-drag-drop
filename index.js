@@ -1,54 +1,28 @@
 const dataTransfer = new DataTransfer()
 
-function omit(object = {}, keys = []) {
-  return Object.entries(object).reduce((accum, [key, value]) => (key in keys ? accum : { ...accum, [key]: value }), {})
-}
-
-function stillExists (selector) {
-  cy.wait(1000)
-  cy.get('body').then($body => {
-    return $body.find(selector).length > 0
-  })
+function omit (object = {}, keys = []) {
+  return Object.entries(object).reduce((accum, [ key, value ]) => key in keys ? accum : { ...accum, [key]: value }, {})
 }
 
 const DragSimulator = {
-  MAX_TRIES: 5,
-  DELAY_INTERVAL_MS: 10,
-  counter: 0,
-  targetElement: null,
   targetSelector: null,
-  rectsEqual(r1, r2) {
-    return r1.top === r2.top && r1.right === r2.right && r1.bottom === r2.bottom && r1.left === r2.left
+  sourceElement: null,
+  options: null,
+  createDefaultOptions (allOptions) {
+    const commonOptions = omit(allOptions, [ 'source', 'target' ])
+    const sourceOptions = { ...commonOptions, ...allOptions.source }
+    const targetOptions = { ...commonOptions, ...allOptions.target }
+    return { sourceOptions, targetOptions }
   },
-  createDefaultOptions(options) {
-    const commonOptions = omit(options, ['source', 'target'])
-    const source = { ...commonOptions, ...options.source }
-    const target = { ...commonOptions, ...options.target }
-    return { source, target }
-  },
-  get dropped() {
-    const currentSourcePosition = this.source.getBoundingClientRect()
-    return !this.rectsEqual(this.initialSourcePosition, currentSourcePosition)
-  },
-  get hasTriesLeft() {
-    return this.counter < this.MAX_TRIES
-  },
-  set target(target) {
-    this.targetElement = target
-  },
-  get target() {
-    return cy.wrap(this.targetElement)
-  },
-  dragstart({ clientX, clientY } = {}) {
-    return cy
-      .wrap(this.source)
+  dragstart ({ clientX, clientY } = {}) {
+    return cy.wrap(this.sourceElement)
       .trigger('pointerdown', {
         which: 1,
         button: 0,
         clientX,
         clientY,
         eventConstructor: 'PointerEvent',
-        ...this.options.source,
+        ...this.options.sourceOptions
       })
       .trigger('mousedown', {
         which: 1,
@@ -56,97 +30,90 @@ const DragSimulator = {
         clientX,
         clientY,
         eventConstructor: 'MouseEvent',
-        ...this.options.source,
+        ...this.options.sourceOptions
       })
-      .trigger('dragstart', { dataTransfer, eventConstructor: 'DragEvent', ...this.options.source })
+      .trigger('dragstart', {
+        dataTransfer,
+        eventConstructor: 'DragEvent',
+        ...this.options.sourceOptions
+      })
   },
-  drop({ clientX, clientY } = {}) {
-    return this.target
+  drop ({ clientX, clientY } = {}) {
+    return cy.get(this.targetSelector)
       .trigger('drop', {
         dataTransfer,
         eventConstructor: 'DragEvent',
-        ...this.options.target,
+        ...this.options.targetOptions
       })
       .then(() => {
-        if (stillExists(this.targetSelector)) {
-          cy.get(this.targetSelector)
-            .trigger('mouseup', {
-              which: 1,
-              button: 0,
-              clientX,
-              clientY,
-              eventConstructor: 'MouseEvent',
-              ...this.options.target,
-            }).then(() => {
-              if (stillExists(this.targetSelector)) {
-                cy.get(this.targetSelector)
-                  .trigger('pointerup', {
-                    which: 1,
-                    button: 0,
-                    clientX,
-                    clientY,
-                    eventConstructor: 'PointerEvent',
-                    ...this.options.target,
-                  })
-              }
-            }) 
-        }
+        cy.get('html').then($html => {
+          if ($html.find(this.targetSelector).length > 0) {
+            cy.get(this.targetSelector)
+              .trigger('mouseup', {
+                which: 1,
+                button: 0,
+                clientX,
+                clientY,
+                eventConstructor: 'MouseEvent',
+                ...this.options.targetOptions
+              }).then(() => {
+                cy.get('html').then($html => {
+                  if ($html.find(this.targetSelector).length > 0) {
+                    cy.get(this.targetSelector)
+                      .trigger('pointerup', {
+                        which: 1,
+                        button: 0,
+                        clientX,
+                        clientY,
+                        eventConstructor: 'PointerEvent',
+                        ...this.options.targetOptions
+                      })
+                  }
+                })
+              })
+          }
+        })
       })
   },
-  dragover({ clientX, clientY } = {}) {
-    if (!this.counter || (!this.dropped && this.hasTriesLeft)) {
-      this.counter += 1
-      return this.target
+  dragover ({ clientX, clientY } = {}) {
+    let ret
+    for (let i = 0; i < 5; i++) {
+      // eslint-disable-next-line cypress/no-unnecessary-waiting
+      ret = cy.get(this.targetSelector)
         .trigger('dragover', {
           dataTransfer,
           eventConstructor: 'DragEvent',
-          ...this.options.target,
+          ...this.options.targetOptions
         })
         .trigger('mousemove', {
-          ...this.options.target,
           clientX,
           clientY,
           eventConstructor: 'MouseEvent',
+          ...this.options.targetOptions
         })
         .trigger('pointermove', {
-          ...this.options.target,
           clientX,
           clientY,
           eventConstructor: 'PointerEvent',
+          ...this.options.targetOptions
         })
-        .wait(this.DELAY_INTERVAL_MS)
-        .then(() => this.dragover({ clientX, clientY }))
+        .wait(100)
     }
-    if (!this.dropped) {
-      console.error(`Exceeded maximum tries of: ${this.MAX_TRIES}, aborting`)
-      return false
-    } else {
-      return true
-    }
+    return ret
   },
-  init(source, target, options = {}) {
+  init (sourceElement, targetSelector, options = {}) {
     this.options = this.createDefaultOptions(options)
-    this.counter = 0
-    this.source = source.get(0)
-    this.initialSourcePosition = this.source.getBoundingClientRect()
-    this.targetSelector = target
-    return cy.get(target).then((targetWrapper) => {
-      this.target = targetWrapper.get(0)
-    })
+    this.sourceElement = sourceElement
+    this.targetSelector = targetSelector
+    return cy.get(this.targetSelector).should('exist')
   },
   drag (sourceWrapper, targetSelector, options) {
     this.init(sourceWrapper, targetSelector, options)
       .then(() => this.dragstart())
       .then(() => this.dragover())
-      .then((success) => {
-        if (success) {
-          return this.drop().then(() => true)
-        } else {
-          return false
-        }
-      })
+      .then(() => this.drop())
   },
-  move(sourceWrapper, options) {
+  move (sourceWrapper, options) {
     const { deltaX, deltaY } = options
     const { top, left } = sourceWrapper.offset()
     const finalCoords = { clientX: top + deltaX, clientY: left + deltaY }
@@ -154,10 +121,10 @@ const DragSimulator = {
       .then(() => this.dragstart({ clientX: top, clientY: left }))
       .then(() => this.dragover(finalCoords))
       .then(() => this.drop(finalCoords))
-  },
+  }
 }
 
-function addChildCommand(name, command) {
+function addChildCommand (name, command) {
   Cypress.Commands.add(name, { prevSubject: 'element' }, (...args) => command(...args))
 }
 
