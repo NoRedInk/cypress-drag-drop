@@ -6,19 +6,19 @@ module.exports = {
       // ... other rules
       {
         test: /\.vue$/,
-        loader: 'vue-loader',
+        loader: 'vue-loader'
       },
       {
         test: /\.css$/,
-        use: ['vue-style-loader', 'css-loader'],
-      },
-    ],
+        use: [ 'vue-style-loader', 'css-loader' ]
+      }
+    ]
   },
   plugins: [
     // make sure to include the plugin!
-    new VueLoaderPlugin(),
+    new VueLoaderPlugin()
   ],
   devServer: {
-    port: process.env.PORT1 || 8080,
-  },
+    port: process.env.PORT1 || 8080
+  }
 }

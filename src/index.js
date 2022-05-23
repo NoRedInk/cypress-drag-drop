@@ -6,5 +6,5 @@ import './examples'
 Vue.component('draggable', Vuedraggable)
 
 new Vue({
-  render: (h) => h(App),
+  render: (h) => h(App)
 }).$mount('#app')

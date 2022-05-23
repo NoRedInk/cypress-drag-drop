@@ -1,0 +1,16 @@
+{
+  "editor.codeActionsOnSave": {
+    "eslint.lintTask.enable": true,
+    "source.fixAll.eslint": true
+  },
+  "editor.tabSize": 2,
+  "eslint.format.enable": true,
+  "eslint.validate": [
+    "javascript",
+    "typescript",
+    "typescriptreact"
+  ],
+  "git.ignoreLimitWarning": true,
+  "javascript.format.enable": false,
+  "files.insertFinalNewline": true
+}
