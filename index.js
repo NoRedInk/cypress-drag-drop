@@ -101,6 +101,18 @@ const DragSimulator = {
     }
     return ret
   },
+  dragend () {
+    cy.get('html').then($html => {
+      if ($html.find(this.targetSelector).length > 0) {
+        cy.get(this.targetSelector)
+          .trigger('dragend', {
+            dataTransfer,
+            eventConstructor: 'DragEvent',
+            ...this.options.targetOptions
+          })
+      }
+    })
+  },
   init (sourceElement, targetSelector, options = {}) {
     this.options = this.createDefaultOptions(options)
     this.sourceElement = sourceElement
@@ -112,6 +124,7 @@ const DragSimulator = {
       .then(() => this.dragstart())
       .then(() => this.dragover())
       .then(() => this.drop())
+      .then(() => this.dragend())
   },
   move (sourceWrapper, options) {
     const { deltaX, deltaY } = options
@@ -121,6 +134,7 @@ const DragSimulator = {
       .then(() => this.dragstart({ clientX: top, clientY: left }))
       .then(() => this.dragover(finalCoords))
       .then(() => this.drop(finalCoords))
+      .then(() => this.dragend())
   }
 }
 
